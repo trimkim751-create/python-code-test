@@ -1,0 +1,195 @@
+# app.py
+# A simple Flask website for house rental and service inquiries.
+
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from datetime import datetime
+import os
+import json
+
+app = Flask(__name__)
+app.secret_key = 'your-secret-key-change-this-in-production'
+
+# In-memory storage for inquiries (use a database in production)
+inquiries = []
+
+# Sample house rental listings
+houses = [
+    {
+        'id': 1,
+        'title': 'Modern 2-Bedroom Apartment',
+        'location': 'Downtown, City Center',
+        'price': '$1,200/month',
+        'bedrooms': 2,
+        'bathrooms': 1,
+        'description': 'Bright and spacious apartment with modern kitchen and city views.',
+        'image': 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600'
+    },
+    {
+        'id': 2,
+        'title': 'Cozy 3-Bedroom Family House',
+        'location': 'Suburban Area',
+        'price': '$1,800/month',
+        'bedrooms': 3,
+        'bathrooms': 2,
+        'description': 'Family-friendly home with large backyard and garage.',
+        'image': 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600'
+    },
+    {
+        'id': 3,
+        'title': 'Luxury 4-Bedroom Villa',
+        'location': 'Waterfront District',
+        'price': '$3,500/month',
+        'bedrooms': 4,
+        'bathrooms': 3,
+        'description': 'Elegant villa with pool, garden, and premium finishes.',
+        'image': 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600'
+    },
+    {
+        'id': 4,
+        'title': 'Studio Apartment',
+        'location': 'University Area',
+        'price': '$750/month',
+        'bedrooms': 0,
+        'bathrooms': 1,
+        'description': 'Compact studio, ideal for students and young professionals.',
+        'image': 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600'
+    },
+]
+
+# Available services
+services = [
+    {
+        'id': 1,
+        'name': 'Plumbing Repair',
+        'description': 'Fixing leaks, pipes, and water installations.',
+        'price': 'From $50',
+        'icon': '🔧'
+    },
+    {
+        'id': 2,
+        'name': 'Electrical Work',
+        'description': 'Wiring, lighting, and electrical repairs.',
+        'price': 'From $60',
+        'icon': '⚡'
+    },
+    {
+        'id': 3,
+        'name': 'House Cleaning',
+        'description': 'Professional deep cleaning services.',
+        'price': 'From $40',
+        'icon': '🧹'
+    },
+    {
+        'id': 4,
+        'name': 'Painting & Renovation',
+        'description': 'Interior painting and renovation work.',
+        'price': 'From $100',
+        'icon': '🎨'
+    },
+    {
+        'id': 5,
+        'name': 'HVAC Maintenance',
+        'description': 'Heating, ventilation, and AC maintenance.',
+        'price': 'From $70',
+        'icon': '❄️'
+    },
+    {
+        'id': 6,
+        'name': 'Moving Services',
+        'description': 'Professional moving and packing assistance.',
+        'price': 'From $80',
+        'icon': '📦'
+    },
+]
+
+
+@app.route('/')
+def home():
+    return render_template('home.html', houses=houses[:2], services=services[:3])
+
+
+@app.route('/houses')
+def house_listings():
+    return render_template('houses.html', houses=houses)
+
+
+@app.route('/house/<int:house_id>')
+def house_detail(house_id):
+    house = next((h for h in houses if h['id'] == house_id), None)
+    if not house:
+        flash('House not found.', 'error')
+        return redirect(url_for('house_listings'))
+    return render_template('house_detail.html', house=house)
+
+
+@app.route('/services')
+def service_listings():
+    return render_template('services.html', services=services)
+
+
+@app.route('/inquire', methods=['GET', 'POST'])
+def inquire():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        phone = request.form.get('phone', '').strip()
+        inquiry_type = request.form.get('inquiry_type', '')
+        subject = request.form.get('subject', '').strip()
+        message = request.form.get('message', '').strip()
+
+        # Basic validation
+        errors = []
+        if not name:
+            errors.append('Name is required.')
+        if not email:
+            errors.append('Email is required.')
+        elif '@' not in email or '.' not in email:
+            errors.append('Please enter a valid email address.')
+        if not message:
+            errors.append('Message is required.')
+
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+            return render_template('inquire.html',
+                                   form_data=request.form,
+                                   houses=houses,
+                                   services=services)
+
+        # Save inquiry
+        inquiry = {
+            'id': len(inquiries) + 1,
+            'name': name,
+            'email': email,
+            'phone': phone,
+            'type': inquiry_type,
+            'subject': subject,
+            'message': message,
+            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        inquiries.append(inquiry)
+
+        flash('Thank you! Your inquiry has been submitted successfully. We will contact you soon.', 'success')
+        return redirect(url_for('inquire'))
+
+    return render_template('inquire.html', form_data={}, houses=houses, services=services)
+
+
+@app.route('/inquiries')
+def view_inquiries():
+    """Admin view to see all inquiries."""
+    return render_template('inquiries.html', inquiries=inquiries)
+
+
+@app.route('/contact')
+def contact():
+    return render_template('contact.html')
+
+
+@app.context_processor
+def inject_year():
+    return {'current_year': datetime.now().year}
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
